@@ -131,17 +131,25 @@ class Exllamav2Model:
             token, _, _ = ExLlamaV2Sampler.sample(logits, settings, ids, random.random(), self.tokenizer)
             ids = torch.cat([ids, token], dim=1)
 
-            if i == 0 and self.tokenizer.tokenizer.IdToPiece(int(token)).startswith('▁'):
+            if i == 0 and self.tokenizer.tokenizer.id_to_piece(int(token)).startswith('▁'):
                 has_leading_space = True
 
             decoded_text = self.tokenizer.decode(ids[:, initial_len:], decode_special_tokens=not state['skip_special_tokens'])[0]
             if has_leading_space:
                 decoded_text = ' ' + decoded_text
 
-            yield decoded_text
+            # Check the partial unicode character
+            if chr(0xfffd) in decoded_text:
+                is_last = i == max_new_tokens - 1
+                is_stopping = token.item() == self.tokenizer.eos_token_id or shared.stop_everything
+                # If we are not at the end of the generation, we skip this token
+                if not (is_last or is_stopping):
+                    continue
 
             if token.item() == self.tokenizer.eos_token_id or shared.stop_everything:
                 break
+
+            yield decoded_text
 
     def generate(self, prompt, state):
         output = ''

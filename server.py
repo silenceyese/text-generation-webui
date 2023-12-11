@@ -1,6 +1,7 @@
 import os
 import warnings
 
+import accelerate  # This early import makes Intel GPUs happy
 import modules.one_click_installer_check
 from modules.block_requests import OpenMonkeyPatch, RequestBlocker
 from modules.logging_colors import logger
@@ -20,6 +21,7 @@ matplotlib.use('Agg')  # This fixes LaTeX rendering on some systems
 
 import json
 import os
+import signal
 import sys
 import time
 from functools import partial
@@ -52,6 +54,17 @@ from modules.models_settings import (
     update_model_parameters
 )
 from modules.utils import gradio
+
+
+def signal_handler(sig, frame):
+    logger.info("Received Ctrl+C. Shutting down Text generation web UI gracefully.")
+    if 'interface' in shared.gradio:
+        shared.gradio['interface'].close()
+
+    sys.exit(0)
+
+
+signal.signal(signal.SIGINT, signal_handler)
 
 
 def create_interface():
